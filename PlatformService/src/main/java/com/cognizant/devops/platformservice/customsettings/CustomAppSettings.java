@@ -79,7 +79,7 @@ public class CustomAppSettings {
 	}
 
 	private File[] getFilesinDir() {
-		File dir = new File(System.getenv().get(INSIGHTS_HOME));
+		File dir = new File("/usr/INSIGHTS_HOME");
         File[] dirFiles = dir.listFiles(new FilenameFilter() { 
                  public boolean accept(File dir, String filename)
                       { return filename.endsWith(".png") || filename.endsWith(".jpeg") || filename.endsWith(".jpg") || filename.endsWith(".svg"); }
