@@ -3,7 +3,7 @@
 	"mqConfig" : "Message Queue Config",
 	"subscribe" :	"Subscribe",
 	"publish" :	"Publish",
-	"communication" : "Communication",
+	"communication" : "Communication ",
 	"loggingSetting" :	" LoggingSetting"
   }
 } 
