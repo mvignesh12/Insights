@@ -17,21 +17,17 @@
 echo "#################### Installing Grafana (running as BG process) ####################"
 sudo mkdir grafana
 cd grafana
+sudo wget https://platform.cogdevops.com/insights_install/installationScripts/latest/RHEL/grafana/latest/grafana.tar.gz
+sudo tar -zxvf grafana.tar.gz
 export GRAFANA_HOME=`pwd`
 sudo echo GRAFANA_HOME=`pwd` | sudo tee -a /etc/environment
 sudo echo "export" GRAFANA_HOME=`pwd` | sudo tee -a /etc/profile
 source /etc/environment
 source /etc/profile
-sudo wget https://platform.cogdevops.com/insights_install/installationScripts/latest/RHEL/grafana/grafana-5.2.2.tar.gz
-sudo tar -zxvf grafana-5.2.2.tar.gz
-GRAFANA_DIR=$GRAFANA_HOME/grafana-5.2.2
-echo $GRAFANA_DIR
 sudo wget https://platform.cogdevops.com/insights_install/installationScripts/latest/RHEL/grafana/ldap.toml
-sudo cp ldap.toml $GRAFANA_DIR/conf/ldap.toml
+sudo cp ldap.toml $GRAFANA_HOME/conf/ldap.toml
 sudo wget https://platform.cogdevops.com/insights_install/installationScripts/latest/RHEL/grafana/defaults.ini
-sudo cp defaults.ini $GRAFANA_DIR/conf/defaults.ini
-cd $GRAFANA_DIR
-echo 'pwd'
+sudo cp defaults.ini $GRAFANA_HOME/conf/defaults.ini
 sudo nohup ./bin/grafana-server &
 echo $! > grafana-pid.txt
 sleep 10
