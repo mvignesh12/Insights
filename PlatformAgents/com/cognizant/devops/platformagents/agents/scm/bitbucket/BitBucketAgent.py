@@ -32,6 +32,9 @@ Created on Dec 28, 2017
 from time import mktime
 from dateutil import parser
 from com.cognizant.devops.platformagents.core.BaseAgent import BaseAgent
+import logging
+import pydevd
+pydevd.settrace('nvdxpasother070', stdoutToServer=True, stderrToServer=True, port=5678)
 
 class BitBucketAgent(BaseAgent):
     def process(self):
@@ -147,32 +150,85 @@ class BitBucketAgent(BaseAgent):
         # get all commits under a branch
         limit=100
         commitStart = 0
-        fetchNextComitPage = True
+        fetchNextCommitPage = True
         isTrackingUpdated = False
         branchTracking = repoTracking.get(branchName, None)
         bitBucketCommits = {} # initialize, in case of any exception
-        while fetchNextComitPage:
+        while fetchNextCommitPage:
             bitBucketCommitsUrl = self.baseEndPoint+projKey+"/repos/"+repoName+"/commits?until="+branchName
             if branchTracking != None:
                 bitBucketCommitsUrl += '&since='+branchTracking
+
             try:
                 bitBucketCommits = self.getResponse(bitBucketCommitsUrl+'&limit='+str(limit)+'&start='+str(commitStart), 'GET', self.userId, self.passwd, None)
-                i = 0
-                for commits in (bitBucketCommits["values"]):
-                    authortimestamp = bitBucketCommits["values"][i]["authorTimestamp"]
-                    if self.startFrom < authortimestamp:
-                        data += self.parseResponse(self.responseTemplate, commits, injectData)
-                    i = i + 1
+                if bitBucketCommits.get("isLastPage", True):
+                    fetchNextCommitPage = False
+                    
                 if not isTrackingUpdated:
                     repoTracking[branchName] = bitBucketCommits["values"][0]["id"]
                     isTrackingUpdated = True
-            except:
+                    
+                logging.warn(bitBucketCommitsUrl+'&limit='+str(limit)+'&start='+str(commitStart))
+                i = 0
+                for commits in (bitBucketCommits["values"]):
+                    commit = bitBucketCommits["values"][i]["id"]
+                    firstParentCommit = bitBucketCommits["values"][i]["parents"][0]["id"]
+                    bitBucketCommitUrl =  self.baseEndPoint+projKey+"/repos/"+repoName+"/commits/"+commit+"/diff?contextLines=0&since="+firstParentCommit+"&whitespace=true&withComments=true?pretty=true"
+                    bitBucketCommitDetails = self.getResponse(bitBucketCommitUrl, 'GET', self.userId, self.passwd, None)
+                    diffs = bitBucketCommitDetails.get('diffs')
+                    linesAdded = 0
+                    linesRemoved = 0
+                    for diff in diffs:
+                        start = 0
+                        hunks = diff.get('hunks')
+                        for hunk in hunks:
+                            segments = hunk.get('segments')
+                            linesAddedPerSegment = (
+                                len(segment['lines'])
+                                for segment in segments
+                                if segment['type'] == "ADDED"
+                                )
+                            #print(linesAdded)
+                            linesAdded += sum(list(linesAddedPerSegment))
+                            
+                            linesRemovedPerSegment = (
+                                len(segment['lines'])
+                                for segment in segments
+                                if segment['type'] == "REMOVED"
+                                )                            
+                            linesRemoved += sum(list(linesRemovedPerSegment))
+                    
+                    print("repo: " + repoName + "::branch:: " + branchName)        
+                    print(linesAdded)
+                    print(linesRemoved)
+                    injectData['linesAdded'] = linesAdded
+                    injectData['linesRemoved'] = linesRemoved                    
+                           
+                    authortimestamp = bitBucketCommits["values"][i]["authorTimestamp"]                    
+                    if self.startFrom < authortimestamp:
+                        data += self.parseResponse(self.responseTemplate, commits, injectData)
+                    i = i + 1
+                #===============================================================
+                # if not isTrackingUpdated:
+                #     repoTracking[branchName] = bitBucketCommits["values"][0]["id"]
+                #     isTrackingUpdated = True
+                #===============================================================
+            except Exception as e: 
+                print(e)
                 pass
-            if bitBucketCommits.get("isLastPage", True):
-                fetchNextCommitPage = False
-                break;
+            #===================================================================
+            # except:
+            #     pass
+            #===================================================================
+            #===================================================================
+            # if bitBucketCommits.get("isLastPage", True):
+            #     fetchNextCommitPage = False
+            #     break;
+            #===================================================================
             commitStart = bitBucketCommits.get("nextPageStart", None)
-            return;
+            if commitStart == None:
+                fetchNextCommitPage = False
+            #return;
         # Update data once its processed for each branch
         if len(data) > 0:
             self.publishToolsData(data)
